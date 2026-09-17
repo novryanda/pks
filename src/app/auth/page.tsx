@@ -33,17 +33,6 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-white/75" />
         {/* Background grid pattern - subtle overlay */}
         <GridPattern className="absolute inset-0 h-full w-full opacity-30" width={40} height={40} strokeDasharray="4 4" />
-        {/* Logo selection */}
-        <div className="relative z-10 w-full max-w-lg mx-auto flex items-center justify-center">
-          <Image
-            src="/logopt.png"
-            alt="Logo PT"
-            width={200}
-            height={200}
-            className="object-contain drop-shadow-2xl"
-            priority
-          />
-        </div>
       </div>
     </div>
   )
