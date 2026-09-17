@@ -1,0 +1,14 @@
+ALTER TABLE "PenerimaanTBS"
+ADD COLUMN IF NOT EXISTS "ppnPersen" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "pphPersen" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "nilaiPpn" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "nilaiPph" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS "jumlahBayarFinal" DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+UPDATE "PenerimaanTBS"
+SET
+  "nilaiPpn" = ROUND((COALESCE("totalBayar", 0) * COALESCE("ppnPersen", 0)) / 100.0),
+  "nilaiPph" = ROUND((COALESCE("totalBayar", 0) * COALESCE("pphPersen", 0)) / 100.0),
+  "jumlahBayarFinal" = COALESCE("totalBayar", 0)
+    + ROUND((COALESCE("totalBayar", 0) * COALESCE("ppnPersen", 0)) / 100.0)
+    - ROUND((COALESCE("totalBayar", 0) * COALESCE("pphPersen", 0)) / 100.0);

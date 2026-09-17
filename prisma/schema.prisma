@@ -1,0 +1,2016 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+    output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+    // Further reading:
+    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+    url      = env("DATABASE_URL")
+}
+
+model Post {
+    id        Int      @id @default(autoincrement())
+    name      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    createdBy   User   @relation(fields: [createdById], references: [id])
+    createdById String
+
+    @@index([name])
+}
+
+// Necessary for Next auth
+model Account {
+    id                       String  @id @default(cuid())
+    userId                   String
+    type                     String
+    provider                 String
+    providerAccountId        String
+    refresh_token            String? // @db.Text
+    access_token             String? // @db.Text
+    expires_at               Int?
+    token_type               String?
+    scope                    String?
+    id_token                 String? // @db.Text
+    session_state            String?
+    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    refresh_token_expires_in Int?
+
+    @@unique([provider, providerAccountId])
+}
+
+model Session {
+    id           String   @id @default(cuid())
+    sessionToken String   @unique
+    userId       String
+    expires      DateTime
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+    id            String    @id @default(cuid())
+    name          String?
+    email         String?   @unique
+    emailVerified DateTime?
+    image         String?
+    password      String?
+    companyId     String?
+    roleId        String?
+    accounts      Account[]
+    sessions      Session[]
+    posts         Post[]
+    company       Company?  @relation(fields: [companyId], references: [id])
+    role          Role?     @relation(fields: [roleId], references: [id])
+    notifications Notification[]
+
+    @@index([companyId])
+    @@index([roleId])
+}
+
+model Company {
+    id        String     @id @default(cuid())
+    code      String     @unique
+    name      String
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
+    users     User[]
+    roles     Role[]
+    suppliers Supplier[]
+    materials Material[]
+    kategoriMaterials KategoriMaterial[]
+    satuanMaterials SatuanMaterial[]
+    transporters Transporter[]
+    penerimaanTBS PenerimaanTBS[]
+    stockMaterials StockMaterial[]
+    prosesProduksi ProsesProduksi[]
+    tangki Tangki[]
+    buyers Buyer[]
+    contracts Contract[]
+    vendors Vendor[]
+    vendorMaterials VendorMaterial[]
+    vendorBongkars VendorBongkar[]
+    pengirimanProduct PengirimanProduct[]
+    stockMovements StockMovement[]
+    purchaseRequests PurchaseRequest[]
+    notifications Notification[]
+    biayaPengeluaran BiayaPengeluaran[]
+    pengajuanBiayaOperasional PengajuanBiayaOperasional[]
+
+    @@index([code])
+}
+
+model Role {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    permissions Json?
+    companyId   String
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    users       User[]
+
+    @@unique([name, companyId])
+    @@index([companyId])
+    @@index([name])
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
+}
+
+// Enums for Supplier
+enum SupplierType {
+    RAMP_PERON
+    KUD
+    KELOMPOK_TANI
+}
+
+enum CertificationType {
+    ISPO
+    RSPO
+}
+
+enum TaxStatus {
+    NON_PKP
+    PKP_11
+    PKP_1_1
+}
+
+enum SalesChannel {
+    LANGSUNG_PKS
+    AGEN
+}
+
+enum TransportationType {
+    MILIK_SENDIRI
+    JASA_PIHAK_KE_3
+}
+
+// Model Supplier TBS untuk PT PKS
+model Supplier {
+    id          String       @id @default(cuid())
+    companyId   String
+    type        SupplierType
+    
+    // Identitas
+    ownerName         String
+    address           String
+    companyPhone      String?
+    personalPhone     String
+    companyName       String?
+    rampPeronAddress  String?
+    
+    // Profil Kebun (JSON array)
+    gardenProfiles    Json // Array of { tahunTanam, luasKebun, estimasiSupplyTBS }
+    
+    // Lokasi
+    longitude         Float
+    latitude          Float
+    
+    // Tipe Pengelolaan Kebun
+    swadaya           Boolean  @default(false)
+    kelompok          Boolean  @default(false)
+    perusahaan        Boolean  @default(false)
+    jenisBibit        String?
+    certificationISPO Boolean  @default(false)
+    certificationRSPO Boolean  @default(false)
+    
+    // Profil Izin Usaha
+    aktePendirian     String?
+    aktePerubahan     String?
+    nib               String?
+    siup              String?
+    npwp              String?
+    
+    // Penjualan TBS
+    salesChannel      SalesChannel?
+    salesChannelDetails String?
+    
+    // Transportasi
+    transportation    TransportationType?
+    transportationUnits Int?
+    
+    // Informasi Rekening (JSON array of bank accounts)
+    // Format: [{ bankName: string, accountNumber: string, accountName: string, isDefault?: boolean }]
+    bankAccounts      Json?
+    
+    // Status Pajak
+    taxStatus         TaxStatus?
+    
+    createdAt         DateTime @default(now())
+    updatedAt         DateTime @updatedAt
+    company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    penerimaanTBS     PenerimaanTBS[]
+    supplierTransporters SupplierTransporter[]
+    
+    @@index([companyId])
+    @@index([type])
+}
+
+// Model Kategori Material
+model KategoriMaterial {
+    id          String     @id @default(cuid())
+    companyId   String
+    name        String
+    description String?
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+    company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    materials   Material[]
+    materialInventaris MaterialInventaris[]
+    
+    @@unique([name, companyId])
+    @@index([companyId])
+}
+
+// Model Satuan Material
+model SatuanMaterial {
+    id        String     @id @default(cuid())
+    companyId String
+    name      String     // kg, ton, liter, etc
+    symbol    String     // simbol satuan
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
+    company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    materials Material[]
+    materialInventaris MaterialInventaris[]
+    
+    @@unique([name, companyId])
+    @@index([companyId])
+}
+
+// Model Material/Barang
+model Material {
+    id          String           @id @default(cuid())
+    companyId   String
+    kategoriId  String
+    satuanId    String
+    name        String
+    code        String           @unique
+    description String?
+    hargaPerUnit Float?           @default(0)  // Harga per unit (Rp/kg)
+    createdAt   DateTime         @default(now())
+    updatedAt   DateTime         @updatedAt
+    company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    kategori    KategoriMaterial @relation(fields: [kategoriId], references: [id], onDelete: Cascade)
+    satuan      SatuanMaterial   @relation(fields: [satuanId], references: [id], onDelete: Cascade)
+    stockMaterial StockMaterial[]
+    penerimaanTBS PenerimaanTBS[]
+    prosesProduksiInput ProsesProduksi[] @relation("ProsesProduksiInput")
+    hasilProduksiOutput HasilProduksi[] @relation("HasilProduksiOutput")
+    tangki Tangki[]
+    contractItems ContractItem[]
+    stockMovements StockMovement[]
+    pengirimanProducts PengirimanProduct[] @relation("PengirimanProductMaterial")
+    
+    @@index([companyId])
+    @@index([kategoriId])
+    @@index([satuanId])
+    riwayatHarga MaterialHargaHistory[]
+}
+
+// Model Riwayat Harga Material
+model MaterialHargaHistory {
+    id          String   @id @default(cuid())
+    materialId  String
+    hargaLama   Float
+    hargaBaru   Float
+    keterangan  String?
+    operator    String?  // Username operator yang merubah
+    createdAt   DateTime @default(now())
+    
+    material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@index([materialId])
+    @@index([createdAt])
+}
+
+// Model Pengirim/Transporter
+model Transporter {
+    id           String        @id @default(cuid())
+    companyId    String
+    nomorKendaraan String
+    namaSupir    String
+    telepon      String?
+    createdAt    DateTime      @default(now())
+    updatedAt    DateTime      @updatedAt
+    company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    penerimaanTBS PenerimaanTBS[]
+    supplierTransporters SupplierTransporter[]
+    
+    @@unique([companyId, nomorKendaraan, namaSupir])
+    @@index([companyId])
+}
+
+// Junction table untuk relasi many-to-many Supplier dan Transporter
+model SupplierTransporter {
+    id            String      @id @default(cuid())
+    supplierId    String
+    transporterId String
+    createdAt     DateTime    @default(now())
+    supplier      Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+    transporter   Transporter @relation(fields: [transporterId], references: [id], onDelete: Cascade)
+    
+    @@unique([supplierId, transporterId])
+    @@index([supplierId])
+    @@index([transporterId])
+}
+
+// Enum untuk status penerimaan
+enum StatusPenerimaan {
+    DRAFT
+    TIMBANG_BRUTO       // Step 1-2: Sudah input data & timbang bruto
+    TIMBANG_TARRA       // Step 3: Sudah timbang tarra, menunggu pilih vendor bongkar
+    PENDING_BONGKAR     // Step 4: Menunggu pilih vendor bongkar
+    PENDING_HARGA       // Menunggu input harga (untuk flow terpisah)
+    COMPLETED
+    CANCELLED
+}
+
+// Enum untuk tipe vendor bongkar
+enum TipeVendorBongkar {
+    SPSI    // Tipe SPSI
+    SPLO    // Tipe SPLO
+}
+
+// Enum untuk metode input timbangan
+enum MetodeInput {
+    MANUAL
+    SISTEM_TIMBANGAN
+}
+
+// Model Penerimaan TBS
+model PenerimaanTBS {
+    id                String           @id @default(cuid())
+    companyId         String
+    nomorPenerimaan   String           @unique
+    tanggalTerima     DateTime
+    materialId        String
+    operatorPenimbang String           // username dari user yang login
+    supplierId        String
+    lokasiKebun       String?          // Lokasi kebun supplier
+    jenisBuah         String?          // TBS-BB (Buah Besar), TBS-BS (Buah Biasa), TBS-BK (Buah Kecil)
+    transporterId     String
+    
+    // Timbangan Bruto (Step 2)
+    beratBruto        Float            @default(0)
+    waktuTimbangBruto DateTime?
+    metodeBruto       MetodeInput      @default(MANUAL)
+    
+    // Timbangan Tarra (Step 3) - Optional karena ada jeda waktu
+    beratTarra        Float            @default(0)
+    waktuTimbangTarra DateTime?
+    metodeTarra       MetodeInput      @default(MANUAL)
+    
+    beratNetto1       Float            @default(0) // bruto - tarra (auto kalkulasi)
+    
+    // Potongan
+    potonganPersen    Float            @default(0)
+    potonganKg        Float            @default(0) // auto kalkulasi dari potonganPersen
+    
+    beratNetto2       Float            @default(0) // netto1 - potonganKg (final)
+    
+    // Harga (Step 4) - Optional, input terpisah
+    hargaPerKg        Float            @default(0)
+    totalBayar        Float            @default(0) // netto2 * hargaPerKg
+    ppnPersen         Float            @default(0)
+    pphPersen         Float            @default(0)
+    nilaiPpn          Float            @default(0)
+    nilaiPph          Float            @default(0)
+    jumlahBayarFinal  Float            @default(0) // totalBayar + nilaiPpn - nilaiPph
+    
+    // Upah Bongkar
+    upahBongkar       Float            @default(16) // upah per kg
+    totalUpahBongkar  Float            @default(0)  // netto2 * upahBongkar
+    
+    // Vendor Bongkar (Step baru setelah Tarra)
+    vendorBongkarId   String?
+    // Info rekening vendor bongkar yang dipilih
+    // Format: { bankName: string, accountNumber: string, accountName: string }
+    selectedVendorBongkarBank Json?
+    
+    // Informasi Rekening Pembayaran (dipilih dari bankAccounts supplier)
+    // Format: { bankName: string, accountNumber: string, accountName: string }
+    selectedBankAccount Json?
+    
+    status            StatusPenerimaan @default(DRAFT)
+    
+    createdAt         DateTime         @default(now())
+    updatedAt         DateTime         @updatedAt
+    
+    company           Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    material          Material         @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    supplier          Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+    transporter       Transporter      @relation(fields: [transporterId], references: [id], onDelete: Cascade)
+    vendorBongkar     VendorBongkar?   @relation(fields: [vendorBongkarId], references: [id])
+    
+    @@index([companyId])
+    @@index([materialId])
+    @@index([supplierId])
+    @@index([transporterId])
+    @@index([vendorBongkarId])
+    @@index([tanggalTerima])
+    @@index([status])
+}
+
+// Model Stock Material
+model StockMaterial {
+    id         String   @id @default(cuid())
+    companyId  String
+    materialId String
+    jumlah     Float    @default(0)
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+    company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@unique([companyId, materialId])
+    @@index([companyId])
+    @@index([materialId])
+}
+
+// Enum untuk status proses produksi
+enum StatusProsesProduksi {
+    DRAFT
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+// Model Proses Produksi
+model ProsesProduksi {
+    id                String               @id @default(cuid())
+    companyId         String
+    nomorProduksi     String               @unique
+    tanggalProduksi   DateTime
+    operatorProduksi  String               // username dari user yang login
+    
+    // Material Input (TBS)
+    materialInputId   String               // Material TBS yang akan diolah
+    jumlahInput       Float                // Total TBS yang akan diolah (dalam kg/ton)
+    
+    status            StatusProsesProduksi @default(DRAFT)
+    
+    createdAt         DateTime             @default(now())
+    updatedAt         DateTime             @updatedAt
+    
+    company           Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    materialInput     Material             @relation("ProsesProduksiInput", fields: [materialInputId], references: [id], onDelete: Cascade)
+    hasilProduksi     HasilProduksi[]
+    
+    @@index([companyId])
+    @@index([materialInputId])
+    @@index([tanggalProduksi])
+    @@index([status])
+}
+
+// Model Hasil Produksi (Output dari proses produksi)
+model HasilProduksi {
+    id                String          @id @default(cuid())
+    prosesProduksiId  String
+    materialOutputId  String          // Material hasil produksi (CPO, Kernel, dll)
+    jumlahOutput      Float           // Total hasil produksi (dalam kg/ton)
+    rendemen          Float           // Rendemen dalam persen (jumlahOutput / jumlahInput * 100)
+    
+    createdAt         DateTime        @default(now())
+    updatedAt         DateTime        @updatedAt
+    
+    prosesProduksi    ProsesProduksi  @relation(fields: [prosesProduksiId], references: [id], onDelete: Cascade)
+    materialOutput    Material        @relation("HasilProduksiOutput", fields: [materialOutputId], references: [id], onDelete: Cascade)
+    
+    @@index([prosesProduksiId])
+    @@index([materialOutputId])
+}
+
+// Model Tangki (Tank) untuk penyimpanan hasil produksi
+model Tangki {
+    id          String   @id @default(cuid())
+    companyId   String
+    materialId  String   // Material yang disimpan (CPO, Kernel, dll)
+    namaTangki  String   // Nama tangki (T-001, Tank A, dll)
+    kapasitas   Float    // Kapasitas maksimal tangki (dalam kg/liter)
+    
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    riwayatStockTangki StockTangki[]
+    
+    @@unique([companyId, namaTangki])
+    @@index([companyId])
+    @@index([materialId])
+}
+
+// Enum untuk tipe transaksi stock tangki
+enum TipeTransaksiTangki {
+    MASUK      // Dari hasil produksi
+    KELUAR     // Untuk pengiriman/penjualan
+    TRANSFER   // Transfer antar tangki
+    ADJUSTMENT // Penyesuaian stock
+}
+
+// Model Riwayat Stock Tangki
+model StockTangki {
+    id                String              @id @default(cuid())
+    tangkiId          String
+    tipeTransaksi     TipeTransaksiTangki
+    jumlah            Float               // Jumlah yang masuk/keluar
+    stockSebelum      Float               // Stock sebelum transaksi
+    stockSesudah      Float               // Stock setelah transaksi
+    referensi         String?             // Nomor referensi (nomor produksi, DO, dll)
+    keterangan        String?             // Keterangan tambahan
+    operator          String              // Username operator
+    tanggalTransaksi  DateTime            @default(now())
+    
+    createdAt         DateTime            @default(now())
+    
+    tangki            Tangki              @relation(fields: [tangkiId], references: [id], onDelete: Cascade)
+    
+    @@index([tangkiId])
+    @@index([tanggalTransaksi])
+    @@index([tipeTransaksi])
+}
+
+// Enum untuk status buyer
+enum StatusBuyer {
+    ACTIVE
+    INACTIVE
+}
+
+// Enum untuk status vendor
+enum StatusVendor {
+    ACTIVE
+    INACTIVE
+}
+
+// Model Buyer (Pembeli/Customer)
+model Buyer {
+    id              String       @id @default(cuid())
+    companyId       String
+    
+    // Informasi Umum
+    code            String       @unique // Kode buyer (auto-generated atau manual)
+    name            String       // Nama perusahaan/buyer
+    contactPerson   String       // Nama contact person
+    email           String?      // Email buyer
+    phone           String       // Nomor telepon
+    address         String       // Alamat lengkap
+    
+    // Informasi Pajak
+    npwp            String?      // NPWP buyer
+    taxStatus       TaxStatus    // Status pajak (NON_PKP, PKP_11, PKP_1_1)
+    
+    // Informasi Rekening
+    bankName        String?      // Nama bank
+    accountNumber   String?      // Nomor rekening
+    accountName     String?      // Nama pemilik rekening
+    
+    // Status
+    status          StatusBuyer  @default(ACTIVE)
+    
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+    
+    company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    contracts       Contract[]
+    pengirimanProduct PengirimanProduct[]
+    invoices        Invoice[]
+    
+    @@index([companyId])
+    @@index([code])
+    @@index([status])
+}
+
+// Enum untuk status kontrak
+enum StatusContract {
+    DRAFT
+    ACTIVE
+    COMPLETED
+    CANCELLED
+}
+
+enum PaymentMethod {
+    LUNAS_AWAL        // Pembayaran lunas di awal
+    SEBAGIAN          // Pembayaran sebagian (setengah)
+    SETELAH_PENGIRIMAN // Pembayaran setelah pengiriman produk
+}
+
+enum PaymentStatus {
+    UNPAID      // Belum dibayar
+    PARTIAL     // Dibayar sebagian
+    PAID        // Lunas
+}
+
+// Model Contract (Kontrak Pembelian)
+model Contract {
+    id                  String         @id @default(cuid())
+    companyId           String
+    buyerId             String
+    
+    // Informasi Kontrak
+    contractNumber      String         @unique // Nomor kontrak (auto-generated)
+    contractDate        DateTime       // Tanggal kontrak dibuat
+    startDate           DateTime?      // Tanggal mulai kontrak (opsional)
+    endDate             DateTime?      // Tanggal berakhir kontrak (opsional)
+    
+    // Informasi Pengiriman
+    deliveryDate        DateTime?      // Tanggal pengiriman (opsional)
+    deliveryAddress     String         // Alamat pengiriman
+    
+    // Harga dan Pajak
+    subtotal            Float          @default(0) // Total sebelum pajak (auto-calculated)
+    taxAmount           Float          @default(0) // Jumlah pajak (auto-calculated based on buyer taxStatus)
+    totalAmount         Float          @default(0) // Total setelah pajak (auto-calculated)
+    
+    // Pembayaran
+    paymentMethod       PaymentMethod  @default(SETELAH_PENGIRIMAN) // Metode pembayaran
+    paymentStatus       PaymentStatus  @default(UNPAID) // Status pembayaran
+    paidAmount          Float          @default(0) // Jumlah yang sudah dibayar
+    paymentDate         DateTime?      // Tanggal pembayaran (jika sudah dibayar)
+    
+    // Status
+    status              StatusContract @default(DRAFT)
+    
+    // Catatan
+    notes               String?        // Catatan tambahan
+    
+    // Custom Fields (Dynamic)
+    customFields        Json?          // [{ fieldName: string, fieldValue: string }]
+    
+    // Attachments (JSON Array untuk multiple files)
+    // Format: [{ fileName: string, originalName: string, path: string, size: number, mimeType: string, uploadedAt: string }]
+    attachments         Json?
+    
+    createdAt           DateTime       @default(now())
+    updatedAt           DateTime       @updatedAt
+    
+    company             Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    buyer               Buyer          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+    contractItems       ContractItem[]
+    pengirimanProduct   PengirimanProduct[]
+    invoices            Invoice[]
+    
+    @@index([companyId])
+    @@index([buyerId])
+    @@index([contractNumber])
+    @@index([status])
+    @@index([deliveryDate])
+}
+
+// Model ContractItem (Item dalam Kontrak)
+model ContractItem {
+    id          String   @id @default(cuid())
+    contractId  String
+    materialId  String
+    
+    // Detail Item
+    quantity          Float    // Jumlah/kuantitas kontrak (tidak berubah)
+    deliveredQuantity Float    @default(0) // Jumlah yang sudah dikirim
+    unitPrice         Float    // Harga per satuan
+    totalPrice        Float    // Total harga item (quantity * unitPrice) - auto-calculated
+    
+    // Catatan
+    notes       String?  // Catatan untuk item ini
+    
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+    material    Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    pengirimanProduct PengirimanProduct[]
+    
+    @@index([contractId])
+    @@index([materialId])
+}
+
+// Model Vendor (Vendor Transportir/Perusahaan)
+model Vendor {
+    id              String          @id @default(cuid())
+    companyId       String
+    
+    // Informasi Umum
+    code            String          @unique // Kode vendor (auto-generated)
+    name            String          // Nama vendor/perusahaan transportir
+    contactPerson   String          // Nama contact person
+    email           String?         // Email vendor
+    phone           String          // Nomor telepon
+    address         String          // Alamat lengkap
+    
+    // Informasi Pajak
+    npwp            String?         // NPWP vendor
+    taxStatus       TaxStatus       // Status pajak (NON_PKP, PKP_11, PKP_1_1)
+    
+    // Informasi Rekening
+    bankName        String?         // Nama bank
+    accountNumber   String?         // Nomor rekening
+    accountName     String?         // Nama pemilik rekening
+    
+    // Status
+    status          StatusVendor    @default(ACTIVE)
+    
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
+    
+    company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    vehicles        VendorVehicle[] // Relasi ke kendaraan
+    
+    @@index([companyId])
+    @@index([code])
+    @@index([status])
+}
+
+// Model VendorVehicle (Kendaraan dan Supir milik Vendor)
+model VendorVehicle {
+    id              String       @id @default(cuid())
+    vendorId        String
+    
+    // Informasi Kendaraan
+    nomorKendaraan  String       // Nomor polisi kendaraan
+    
+    // Informasi Supir
+    namaSupir       String       // Nama supir
+    noHpSupir       String?      // Nomor HP supir
+    noSim           String?      // Nomor SIM supir
+    
+    // Status
+    status          StatusVendor @default(ACTIVE)
+    
+    createdAt       DateTime     @default(now())
+    updatedAt       DateTime     @updatedAt
+    
+    vendor          Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+    pengirimanProduct PengirimanProduct[]
+    
+    @@unique([vendorId, nomorKendaraan, namaSupir])
+    @@index([vendorId])
+    @@index([status])
+}
+
+// Model Vendor Material (Vendor untuk PR/PO)
+model VendorMaterial {
+    id              String             @id @default(cuid())
+    companyId       String
+    
+    // Informasi Umum
+    code            String             @unique // Kode vendor (auto-generated)
+    name            String             // Nama vendor/perusahaan
+    contactPerson   String             // Nama contact person
+    email           String?            // Email vendor
+    phone           String             // Nomor telepon
+    address         String             // Alamat lengkap
+    
+    // Informasi Pajak
+    npwp            String?            // NPWP vendor
+    taxStatus       TaxStatus          // Status pajak (NON_PKP, PKP_11, PKP_1_1)
+    
+    // Informasi Rekening
+    bankName        String?            // Nama bank
+    accountNumber   String?            // Nomor rekening
+    accountName     String?            // Nama pemilik rekening
+    
+    // Kategori/Spesialisasi
+    kategori        String?            // Kategori vendor (Spare Part, Consumable, dll)
+    
+    // Status
+    status          StatusVendor       @default(ACTIVE)
+    
+    createdAt       DateTime           @default(now())
+    updatedAt       DateTime           @updatedAt
+    
+    company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    
+    // Relasi ke PO dan PenerimaanBarang
+    purchaseOrders      PurchaseOrder[]
+    penerimaanBarang    PenerimaanBarang[]
+    
+    @@index([companyId])
+    @@index([code])
+    @@index([status])
+    @@index([kategori])
+}
+
+// Model Vendor Bongkar (Vendor untuk upah bongkar TBS)
+model VendorBongkar {
+    id              String             @id @default(cuid())
+    companyId       String
+    
+    // Informasi Umum
+    code            String             @unique // Kode vendor (auto-generated)
+    name            String             // Nama vendor/perusahaan
+    contactPerson   String             // Nama contact person
+    email           String?            // Email vendor
+    phone           String             // Nomor telepon
+    address         String             // Alamat lengkap
+    
+    // Tipe Vendor Bongkar (SPSI atau SPLO)
+    tipe            TipeVendorBongkar
+    
+    // Informasi Rekening (JSON Array untuk multiple rekening)
+    // Format: [{ bankName: string, accountNumber: string, accountName: string, isDefault?: boolean }]
+    bankAccounts    Json?
+    
+    // Status
+    status          StatusVendor       @default(ACTIVE)
+    
+    createdAt       DateTime           @default(now())
+    updatedAt       DateTime           @updatedAt
+    
+    company         Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    
+    // Relasi ke PenerimaanTBS dan PengirimanProduct
+    penerimaanTBS       PenerimaanTBS[]
+    pengirimanProduct   PengirimanProduct[]
+    
+    @@index([companyId])
+    @@index([code])
+    @@index([tipe])
+    @@index([status])
+}
+
+// Enum untuk status pengiriman product
+enum StatusPengiriman {
+    DRAFT
+    TIMBANG_TARRA     // Sudah timbang tarra - menunggu gross
+    TIMBANG_GROSS     // Sudah timbang gross - menunggu pilih kontrak
+    COMPLETED         // Sudah lengkap (kontrak dipilih & mutu kernel diisi)
+    CANCELLED
+}
+
+// Model Pengiriman Product (Penjualan & Pengiriman)
+model PengirimanProduct {
+    id                   String            @id @default(cuid())
+    companyId            String
+    nomorPengiriman      String            @unique
+    tanggalPengiriman    DateTime
+    operatorPenimbang    String            // username dari user yang login
+    
+    // Produk yang dikirim (dipilih di awal)
+    materialId           String?
+    
+    // Informasi Penerima (diisi setelah timbang gross)
+    buyerId              String?
+    contractId           String?
+    contractItemId       String?            // Item spesifik dari kontrak yang dikirim
+    
+    // Informasi Vendor Transportir (diisi di awal)
+    vendorVehicleId      String
+    vendorBongkarId      String?
+
+    // Harga jasa vendor transportir (diinput dari keuangan)
+    hargaVendorTransportir      Float             @default(0)
+    ppnPersen                   Float             @default(0)
+    pphPersen                   Float             @default(0)
+    nilaiPpn                    Float             @default(0)
+    nilaiPph                    Float             @default(0)
+    totalHargaVendorTransportir Float             @default(0)
+    
+    // Upah Bongkar
+    upahBongkar          Float             @default(0)
+    totalUpahBongkar     Float             @default(0)
+    // Format: { bankName: string, accountNumber: string, accountName: string }
+    selectedVendorBongkarBank Json?
+    
+    // Timbangan (Tarra dulu, baru Gross)
+    beratTarra           Float
+    waktuTimbangTarra    DateTime
+    metodeTarra          MetodeInput       @default(MANUAL)
+    
+    beratGross           Float?
+    waktuTimbangGross    DateTime?
+    metodeGross          MetodeInput       @default(MANUAL)
+    
+    beratNetto           Float?             // gross - tarra (auto kalkulasi)
+    
+    // Mutu Kernel (Dynamic Custom Fields)
+    mutuCustomFields     Json?              // [{ fieldName: string, fieldValue: string }]
+    
+    status               StatusPengiriman  @default(DRAFT)
+    
+    createdAt            DateTime          @default(now())
+    updatedAt            DateTime          @updatedAt
+    
+    company              Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    material             Material?         @relation("PengirimanProductMaterial", fields: [materialId], references: [id], onDelete: SetNull)
+    buyer                Buyer?            @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+    contract             Contract?         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+    contractItem         ContractItem?     @relation(fields: [contractItemId], references: [id], onDelete: Cascade)
+    vendorVehicle        VendorVehicle     @relation(fields: [vendorVehicleId], references: [id], onDelete: Cascade)
+    vendorBongkar        VendorBongkar?    @relation(fields: [vendorBongkarId], references: [id])
+    invoiceItem          InvoiceItem?
+    
+    @@index([companyId])
+    @@index([materialId])
+    @@index([buyerId])
+    @@index([contractId])
+    @@index([contractItemId])
+    @@index([vendorVehicleId])
+    @@index([vendorBongkarId])
+    @@index([tanggalPengiriman])
+    @@index([status])
+}
+
+// Enum untuk tipe pergerakan stock
+enum TipeMovement {
+    IN        // Barang masuk (dari penerimaan, produksi)
+    OUT       // Barang keluar (pengiriman/penjualan)
+    ADJUSTMENT // Penyesuaian stock
+}
+
+// Model Stock Movement (Riwayat pergerakan stock)
+model StockMovement {
+    id                String        @id @default(cuid())
+    companyId         String
+    materialId        String
+    tipeMovement      TipeMovement
+    jumlah            Float         // Jumlah yang masuk/keluar
+    stockSebelum      Float         // Stock sebelum transaksi
+    stockSesudah      Float         // Stock setelah transaksi
+    referensi         String?       // Nomor referensi (nomor penerimaan, pengiriman, dll)
+    keterangan        String?       // Keterangan tambahan
+    operator          String        // Username operator
+    tanggalTransaksi  DateTime      @default(now())
+    
+    createdAt         DateTime      @default(now())
+    
+    company           Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    material          Material      @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@index([companyId])
+    @@index([materialId])
+    @@index([tanggalTransaksi])
+    @@index([tipeMovement])
+}
+
+// ============================================
+// MODUL INVENTARIS GUDANG
+// ============================================
+
+// Enum untuk status Store Request (SR)
+enum StatusStoreRequest {
+    DRAFT           // Draft, belum disubmit
+    PENDING         // Menunggu approval
+    APPROVED        // Disetujui, siap diproses
+    COMPLETED       // Selesai (barang sudah dikeluarkan)
+    REJECTED        // Ditolak
+    NEED_PR         // Perlu Purchase Request (stok habis)
+    CANCELLED       // Dibatalkan
+}
+
+// Enum untuk status Purchase Request (PR)
+enum StatusPurchaseRequest {
+    DRAFT           // Draft, belum disubmit
+    PENDING         // Menunggu approval
+    APPROVED        // Disetujui
+    REJECTED        // Ditolak
+    PO_CREATED      // PO sudah dibuat (untuk tipe PENGAJUAN_PO)
+    COMPLETED       // Selesai (untuk tipe PEMBELIAN_LANGSUNG setelah barang diterima)
+    CANCELLED       // Dibatalkan
+}
+
+// Enum untuk tipe pembelian Purchase Request
+enum TipePembelianPR {
+    PEMBELIAN_LANGSUNG    // Direct purchase - langsung ke penerimaan barang
+    PENGAJUAN_PO          // Submit to PO - masuk ke PO untuk diproses
+}
+
+// Enum untuk status Purchase Order (PO)
+enum StatusPurchaseOrder {
+    DRAFT           // Draft, belum disubmit
+    ISSUED          // PO sudah diterbitkan ke vendor
+    PARTIAL_RECEIVED // Sebagian barang sudah diterima
+    COMPLETED       // Semua barang sudah diterima
+    CANCELLED       // Dibatalkan
+}
+
+// Enum untuk status Penerimaan Barang
+enum StatusPenerimaanBarang {
+    DRAFT           // Draft, sedang input
+    COMPLETED       // Selesai dan sudah masuk ke stok
+    CANCELLED       // Dibatalkan
+}
+
+// Enum untuk status Pengeluaran Barang
+enum StatusPengeluaranBarang {
+    DRAFT           // Draft, belum disubmit
+    PENDING         // Menunggu approval
+    APPROVED        // Disetujui
+    COMPLETED       // Barang sudah dikeluarkan
+    REJECTED        // Ditolak
+    CANCELLED       // Dibatalkan
+}
+
+// Model Store Request (SR) - Permintaan Barang dari Divisi
+model StoreRequest {
+    id                    String             @id @default(cuid())
+    companyId             String
+    nomorSR               String             @unique
+    tanggalRequest        DateTime           @default(now())
+    divisi                String             // Divisi yang request
+    requestedBy           String             // Username/nama yang request
+    approvedBy            String?            // Username/nama yang approve (Asisten/Mandor)
+    tanggalApproval       DateTime?
+    keterangan            String?
+    status                StatusStoreRequest @default(DRAFT)
+    
+    createdAt             DateTime           @default(now())
+    updatedAt             DateTime           @updatedAt
+    
+    items                 StoreRequestItem[]
+    pengeluaranBarang     PengeluaranBarang?
+    purchaseRequest       PurchaseRequest?
+    
+    @@index([companyId])
+    @@index([tanggalRequest])
+    @@index([status])
+    @@index([divisi])
+}
+
+// Item Store Request
+model StoreRequestItem {
+    id              String        @id @default(cuid())
+    storeRequestId  String
+    materialId      String
+    jumlahRequest   Float
+    keterangan      String?
+    
+    createdAt       DateTime      @default(now())
+    updatedAt       DateTime      @updatedAt
+    
+    storeRequest    StoreRequest  @relation(fields: [storeRequestId], references: [id], onDelete: Cascade)
+    material        MaterialInventaris @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@index([storeRequestId])
+    @@index([materialId])
+}
+
+// Model Purchase Request (PR) - Permintaan Pembelian dari Gudang ke Head Office
+model PurchaseRequest {
+    id                    String                 @id @default(cuid())
+    companyId             String
+    nomorPR               String                 @unique
+    tanggalRequest        DateTime               @default(now())
+    tipePembelian         TipePembelianPR        @default(PENGAJUAN_PO) // Tipe pembelian
+    storeRequestId        String?                @unique // Bisa dari SR atau buat manual
+    divisi                String?                // Divisi yang mengajukan
+    requestedBy           String                 // Adm Gudang
+    approvedBy            String?                // Head Office/Procurement
+    tanggalApproval       DateTime?
+    
+    // Field khusus untuk pembelian langsung
+    vendorNameDirect      String?                // Nama vendor (untuk pembelian langsung)
+    vendorAddressDirect   String?                // Alamat vendor (untuk pembelian langsung)
+    vendorPhoneDirect     String?                // Telepon vendor (untuk pembelian langsung)
+    
+    keterangan            String?
+    status                StatusPurchaseRequest  @default(DRAFT)
+    
+    createdAt             DateTime               @default(now())
+    updatedAt             DateTime               @updatedAt
+    
+    company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    storeRequest          StoreRequest?          @relation(fields: [storeRequestId], references: [id])
+    items                 PurchaseRequestItem[]
+    purchaseOrders        PurchaseOrder[]        // Satu PR bisa memiliki banyak PO
+    penerimaanBarang      PenerimaanBarang[]     // Relasi ke penerimaan barang (untuk pembelian langsung)
+    pembayaranPR          PembayaranPR[]         // Pembayaran untuk PR pembelian langsung
+    
+    @@index([companyId])
+    @@index([tanggalRequest])
+    @@index([status])
+    @@index([tipePembelian])
+    @@index([storeRequestId])
+}
+
+// Item Purchase Request
+model PurchaseRequestItem {
+    id                String          @id @default(cuid())
+    purchaseRequestId String
+    materialId        String
+    jumlahRequest     Float
+    jumlahPOCreated   Float           @default(0)  // Jumlah yang sudah di-PO
+    estimasiHarga     Float?          // Estimasi harga satuan
+    keterangan        String?
+    
+    createdAt         DateTime        @default(now())
+    updatedAt         DateTime        @updatedAt
+    
+    purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+    material          MaterialInventaris @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    poItemMappings    POItemPRItemMapping[]
+    
+    @@index([purchaseRequestId])
+    @@index([materialId])
+}
+
+// Model Purchase Order (PO) - Order Pembelian ke Vendor
+model PurchaseOrder {
+    id                    String               @id @default(cuid())
+    companyId             String
+    nomorPO               String               @unique
+    tanggalPO             DateTime             @default(now())
+    purchaseRequestId     String?              // Satu PR bisa memiliki banyak PO
+    vendorMaterialId      String?              // Optional: ID Vendor Material
+    vendorName            String               // Nama vendor (input teks)
+    vendorAddress         String?
+    vendorPhone           String?
+    
+    tanggalKirimDiharapkan DateTime?          // Expected delivery date
+    termPembayaran        String?              // Net 30, Net 60, dll
+    
+    issuedBy              String               // Username yang menerbitkan PO
+    approvedBy            String?              // Username yang approve
+    tanggalApproval       DateTime?
+    
+    subtotal              Float                @default(0)
+    taxPercent            Float                @default(0)  // PPN dalam persen (%)
+    taxAmount             Float                @default(0)  // Jumlah PPN (auto-calculated)
+    discountType          String?              // PERCENT atau AMOUNT
+    discountPercent       Float                @default(0)  // Diskon dalam persen (%)
+    discountAmount        Float                @default(0)  // Jumlah diskon (jika tipe AMOUNT atau auto-calculated jika PERCENT)
+    shipping              Float                @default(0)  // Biaya kirim
+    totalAmount           Float                @default(0)  // Total keseluruhan
+    
+    // PDF Brosur/Lampiran
+    brosurPdfPath         String?              // Path ke file PDF brosur
+    brosurPdfName         String?              // Nama file asli
+    
+    keterangan            String?
+    status                StatusPurchaseOrder  @default(DRAFT)
+    
+    createdAt             DateTime             @default(now())
+    updatedAt             DateTime             @updatedAt
+    
+    purchaseRequest       PurchaseRequest?     @relation(fields: [purchaseRequestId], references: [id])
+    vendorMaterial        VendorMaterial?      @relation(fields: [vendorMaterialId], references: [id])
+    items                 PurchaseOrderItem[]
+    penerimaanBarang      PenerimaanBarang[]
+    pembayaranPO          PembayaranPO[]       // Pembayaran untuk PO
+    
+    @@index([companyId])
+    @@index([tanggalPO])
+    @@index([status])
+    @@index([purchaseRequestId])
+    @@index([vendorMaterialId])
+}
+
+// Item Purchase Order
+model PurchaseOrderItem {
+    id              String         @id @default(cuid())
+    purchaseOrderId String
+    materialId      String
+    jumlahOrder     Float
+    hargaSatuan     Float
+    subtotal        Float          // jumlahOrder * hargaSatuan
+    jumlahDiterima  Float          @default(0) // Total yang sudah diterima
+    keterangan      String?
+    
+    createdAt       DateTime       @default(now())
+    updatedAt       DateTime       @updatedAt
+    
+    purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+    material        MaterialInventaris @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    penerimaanBarangItems PenerimaanBarangItem[]
+    prItemMappings  POItemPRItemMapping[]
+    
+    @@index([purchaseOrderId])
+    @@index([materialId])
+}
+
+// Mapping antara PO Item dan PR Item untuk tracking quantity
+model POItemPRItemMapping {
+    id                    String               @id @default(cuid())
+    purchaseOrderItemId   String
+    purchaseRequestItemId String
+    quantity              Float                // Jumlah yang dialokasikan dari PR ke PO
+    
+    createdAt             DateTime             @default(now())
+    
+    purchaseOrderItem     PurchaseOrderItem    @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Cascade)
+    purchaseRequestItem   PurchaseRequestItem  @relation(fields: [purchaseRequestItemId], references: [id], onDelete: Cascade)
+    
+    @@index([purchaseOrderItemId])
+    @@index([purchaseRequestItemId])
+}
+
+// Model Penerimaan Barang - Barang Masuk Gudang
+model PenerimaanBarang {
+    id                    String                  @id @default(cuid())
+    companyId             String
+    nomorPenerimaan       String                  @unique
+    tanggalPenerimaan     DateTime                @default(now())
+    purchaseOrderId       String?                 // Dari PO (optional)
+    purchaseRequestId     String?                 // Dari PR langsung (optional)
+    vendorId              String
+    vendorMaterialId      String?                 // Optional: ID Vendor Material
+    vendorName            String                  // Denormalisasi
+    nomorSuratJalan       String?                 // Nomor surat jalan dari vendor
+    tanggalSuratJalan     DateTime?
+    nomorInvoice          String?                 // Nomor invoice dari vendor
+    tanggalInvoice        DateTime?
+    
+    receivedBy            String                  // Username adm gudang yang terima
+    checkedBy             String?                 // Username yang cek barang
+    
+    keterangan            String?
+    status                StatusPenerimaanBarang  @default(DRAFT)
+    
+    createdAt             DateTime                @default(now())
+    updatedAt             DateTime                @updatedAt
+    
+    purchaseOrder         PurchaseOrder?          @relation(fields: [purchaseOrderId], references: [id])
+    purchaseRequest       PurchaseRequest?        @relation(fields: [purchaseRequestId], references: [id])
+    vendorMaterial        VendorMaterial?         @relation(fields: [vendorMaterialId], references: [id])
+    items                 PenerimaanBarangItem[]
+    
+    @@index([companyId])
+    @@index([tanggalPenerimaan])
+    @@index([status])
+    @@index([vendorId])
+    @@index([vendorMaterialId])
+    @@index([purchaseOrderId])
+    @@index([purchaseRequestId])
+}
+
+// Item Penerimaan Barang
+model PenerimaanBarangItem {
+    id                  String            @id @default(cuid())
+    penerimaanBarangId  String
+    materialId          String
+    purchaseOrderItemId String?           // Link ke PO item jika ada
+    jumlahDiterima      Float
+    hargaSatuan         Float
+    totalHarga          Float             // jumlahDiterima * hargaSatuan
+    lokasiPenyimpanan   String?           // Lokasi di gudang
+    keterangan          String?
+    
+    createdAt           DateTime          @default(now())
+    updatedAt           DateTime          @updatedAt
+    
+    penerimaanBarang    PenerimaanBarang  @relation(fields: [penerimaanBarangId], references: [id], onDelete: Cascade)
+    material            MaterialInventaris @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+    
+    @@index([penerimaanBarangId])
+    @@index([materialId])
+    @@index([purchaseOrderItemId])
+}
+
+// Model Pengeluaran Barang - Barang Keluar dari Gudang
+model PengeluaranBarang {
+    id                    String                   @id @default(cuid())
+    companyId             String
+    nomorPengeluaran      String                   @unique
+    tanggalPengeluaran    DateTime                 @default(now())
+    storeRequestId        String?                  @unique // Link ke SR jika ada
+    divisi                String                   // Divisi penerima
+    requestedBy           String                   // Nama yang request
+    approvedBy            String?                  // Atasan yang approve
+    tanggalApproval       DateTime?
+    issuedBy              String?                  // Username adm gudang yang keluarkan barang
+    receivedByDivisi      String?                  // Nama yang terima dari divisi
+    tanggalDiterima       DateTime?
+    
+    keterangan            String?
+    status                StatusPengeluaranBarang  @default(DRAFT)
+    
+    createdAt             DateTime                 @default(now())
+    updatedAt             DateTime                 @updatedAt
+    
+    storeRequest          StoreRequest?            @relation(fields: [storeRequestId], references: [id])
+    items                 PengeluaranBarangItem[]
+    
+    @@index([companyId])
+    @@index([tanggalPengeluaran])
+    @@index([status])
+    @@index([divisi])
+    @@index([storeRequestId])
+}
+
+// Item Pengeluaran Barang
+model PengeluaranBarangItem {
+    id                  String             @id @default(cuid())
+    pengeluaranBarangId String
+    materialId          String
+    jumlahKeluar        Float
+    hargaSatuan         Float              // Harga rata-rata dari stok
+    totalHarga          Float              // jumlahKeluar * hargaSatuan
+    keterangan          String?
+    
+    createdAt           DateTime           @default(now())
+    updatedAt           DateTime           @updatedAt
+    
+    pengeluaranBarang   PengeluaranBarang  @relation(fields: [pengeluaranBarangId], references: [id], onDelete: Cascade)
+    material            MaterialInventaris @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@index([pengeluaranBarangId])
+    @@index([materialId])
+}
+
+// Model Material Inventaris - Master data material untuk inventaris
+model MaterialInventaris {
+    id                    String                    @id @default(cuid())
+    companyId             String
+    partNumber            String                    // Part number/kode barang
+    namaMaterial          String
+    kategoriMaterialId    String
+    satuanMaterialId      String
+    lokasiDigunakan       String?                   // Lokasi penggunaan (divisi, area, dll)
+    spesifikasi           String?                   // Spesifikasi material
+    hargaSatuan           Float?                    @default(0) // Harga per satuan
+    minStock              Float                     @default(0) // Minimum stock alert
+    maxStock              Float                     @default(0) // Maximum stock capacity
+    stockOnHand           Float                     @default(0) // Stock saat ini
+    
+    createdAt             DateTime                  @default(now())
+    updatedAt             DateTime                  @updatedAt
+    
+    kategoriMaterial      KategoriMaterial          @relation(fields: [kategoriMaterialId], references: [id])
+    satuanMaterial        SatuanMaterial            @relation(fields: [satuanMaterialId], references: [id])
+    
+    storeRequestItems     StoreRequestItem[]
+    purchaseRequestItems  PurchaseRequestItem[]
+    purchaseOrderItems    PurchaseOrderItem[]
+    penerimaanBarangItems PenerimaanBarangItem[]
+    pengeluaranBarangItems PengeluaranBarangItem[]
+    inventoryTransactions InventoryTransaction[]
+    
+    @@unique([partNumber, companyId])
+    @@index([companyId])
+    @@index([kategoriMaterialId])
+    @@index([satuanMaterialId])
+    @@index([partNumber])
+}
+
+// Model Inventory Transaction - Transaksi detail inventaris
+model InventoryTransaction {
+    id                  String              @id @default(cuid())
+    companyId           String
+    materialId          String
+    tanggalTransaksi    DateTime            @default(now())
+    tipeTransaksi       TipeMovement        // IN, OUT, ADJUSTMENT
+    referensi           String?             // Nomor penerimaan/pengeluaran/SR/PR/PO
+    vendorId            String?
+    vendorName          String?
+    jumlahMasuk         Float               @default(0) // Received
+    jumlahKeluar        Float               @default(0) // Issuing
+    stockOnHand         Float               // Stock setelah transaksi
+    hargaSatuan         Float               @default(0)
+    totalHarga          Float               @default(0)
+    keterangan          String?
+    operator            String              // Username operator
+    
+    createdAt           DateTime            @default(now())
+    
+    material            MaterialInventaris  @relation(fields: [materialId], references: [id], onDelete: Cascade)
+    
+    @@index([companyId])
+    @@index([materialId])
+    @@index([tanggalTransaksi])
+    @@index([tipeTransaksi])
+    @@index([vendorId])
+}
+
+// ============================================
+// MODUL KEUANGAN
+// ============================================
+
+// Enum untuk status pembayaran
+enum StatusPembayaran {
+    UNPAID      // Belum dibayar
+    PARTIAL     // Sebagian dibayar
+    PAID        // Sudah dibayar lunas
+}
+
+// Enum untuk tipe hutang/piutang
+enum TipeTransaksiKeuangan {
+    PENERIMAAN_TBS      // Hutang dari pembelian TBS ke supplier
+    PURCHASE_ORDER      // Hutang dari PO ke vendor
+    PEMBELIAN_LANGSUNG  // Hutang dari PR pembelian langsung
+    PENGIRIMAN_PRODUCT  // Piutang dari pengiriman product ke buyer
+}
+
+// Model Hutang (Payable) - Track semua yang harus dibayar ke supplier/vendor
+model Hutang {
+    id                    String                   @id @default(cuid())
+    companyId             String
+    
+    tipeTransaksi         TipeTransaksiKeuangan    
+    referensiId           String                   // ID dari penerimaan TBS/PO/PR
+    referensiNomor        String                   // Nomor referensi
+    tanggalTransaksi      DateTime                 
+    tanggalJatuhTempo     DateTime?                // Tanggal jatuh tempo pembayaran
+    
+    // Informasi Pihak Ketiga
+    pihakKetigaId         String?                  // ID Supplier/Vendor
+    pihakKetigaNama       String                   // Nama Supplier/Vendor
+    pihakKetigaTipe       String?                  // SUPPLIER / VENDOR
+    
+    // Nilai
+    totalNilai            Float                    // Total nilai hutang
+    totalDibayar          Float                    @default(0) // Total yang sudah dibayar
+    sisaHutang            Float                    // Sisa hutang (totalNilai - totalDibayar)
+    
+    // Status
+    status                StatusPembayaran         @default(UNPAID)
+    
+    // Catatan
+    keterangan            String?
+    
+    createdAt             DateTime                 @default(now())
+    updatedAt             DateTime                 @updatedAt
+    
+    pembayaranHutang      PembayaranHutang[]
+    
+    @@index([companyId])
+    @@index([tipeTransaksi])
+    @@index([status])
+    @@index([tanggalTransaksi])
+    @@index([pihakKetigaId])
+}
+
+// Model Pembayaran Hutang - Record setiap pembayaran
+model PembayaranHutang {
+    id                    String    @id @default(cuid())
+    hutangId              String
+    
+    tanggalBayar          DateTime  @default(now())
+    jumlahBayar           Float
+    metodePembayaran      String?   // CASH, TRANSFER, GIRO, dll
+    nomorReferensi        String?   // Nomor bukti bayar
+    keterangan            String?
+    dibayarOleh           String    // Username yang mencatat pembayaran
+    
+    createdAt             DateTime  @default(now())
+    
+    hutang                Hutang    @relation(fields: [hutangId], references: [id], onDelete: Cascade)
+    
+    @@index([hutangId])
+    @@index([tanggalBayar])
+}
+
+// Model Piutang (Receivable) - Track semua yang harus diterima dari buyer
+model Piutang {
+    id                    String                   @id @default(cuid())
+    companyId             String
+    
+    tipeTransaksi         TipeTransaksiKeuangan    @default(PENGIRIMAN_PRODUCT)
+    referensiId           String                   // ID dari pengiriman product
+    referensiNomor        String                   // Nomor pengiriman
+    tanggalTransaksi      DateTime                 
+    tanggalJatuhTempo     DateTime?                // Tanggal jatuh tempo pembayaran
+    
+    // Informasi Buyer
+    buyerId               String?
+    buyerNama             String
+    contractId            String?                  // ID Kontrak terkait
+    contractNumber        String?                  // Nomor kontrak
+    
+    // Nilai
+    totalNilai            Float                    // Total nilai piutang
+    totalDiterima         Float                    @default(0) // Total yang sudah diterima
+    sisaPiutang           Float                    // Sisa piutang (totalNilai - totalDiterima)
+    
+    // Status
+    status                StatusPembayaran         @default(UNPAID)
+    
+    // Catatan
+    keterangan            String?
+    
+    createdAt             DateTime                 @default(now())
+    updatedAt             DateTime                 @updatedAt
+    
+    penerimaanPiutang     PenerimaanPiutang[]
+    
+    @@index([companyId])
+    @@index([status])
+    @@index([tanggalTransaksi])
+    @@index([buyerId])
+    @@index([contractId])
+}
+
+// Model Penerimaan Piutang - Record setiap pembayaran dari buyer
+model PenerimaanPiutang {
+    id                    String    @id @default(cuid())
+    piutangId             String
+    
+    tanggalTerima         DateTime  @default(now())
+    jumlahTerima          Float
+    metodePembayaran      String?   // CASH, TRANSFER, GIRO, dll
+    nomorReferensi        String?   // Nomor bukti terima
+    keterangan            String?
+    diterimaOleh          String    // Username yang mencatat penerimaan
+    
+    createdAt             DateTime  @default(now())
+    
+    piutang               Piutang   @relation(fields: [piutangId], references: [id], onDelete: Cascade)
+    
+    @@index([piutangId])
+    @@index([tanggalTerima])
+}
+
+// ============================================
+// MODUL PENGGAJIAN KARYAWAN
+// ============================================
+
+// Master Data Divisi - Daftar divisi/departemen
+model MasterDivisi {
+    id        String   @id
+
+    nama      String
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    karyawan  MasterKaryawan[]
+    jabatan   MasterJabatan[]
+    
+    @@index([isActive])
+}
+
+// Master Data Jabatan - Daftar jabatan/posisi (optional relation to Divisi)
+model MasterJabatan {
+    id        String   @id
+
+    nama      String
+    level     Int?
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    // Optional relation to Divisi
+    divisiId  String?
+    divisi    MasterDivisi? @relation(fields: [divisiId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+    
+    karyawan  MasterKaryawan[]
+    
+    @@index([isActive])
+    @@index([divisiId])
+}
+
+// Master Data Karyawan - Data tetap karyawan (TIDAK DIHAPUS)
+model MasterKaryawan {
+    id                    String   @id @default(cuid())
+    
+    // Identitas Karyawan
+    namaKaryawan          String   // NAMA KARYAWAN
+    
+    // Relasi ke Divisi & Jabatan
+    divisiId              String?
+    jabatanId             String?
+    divisi                MasterDivisi?  @relation(fields: [divisiId], references: [id], onUpdate: Cascade)
+    jabatan               MasterJabatan? @relation(fields: [jabatanId], references: [id], onUpdate: Cascade)
+    
+    // Data Karyawan Lainnya
+    gol                   String?  // GOL (Golongan)
+    tktk                  String?  // TK/K (Status keluarga)
+    
+    // Informasi Rekening & BPJS
+    nomorRekening         String?  // NOMOR REKENING
+    noBpjsTk              String?  // NO BPJS TK
+    noBpjsKesehatan       String?  // NO BPJS KESEHATAN
+    
+    // ========== GAJI (SALARY BASE) ==========
+    gajiPokok             Decimal  @default(0) @db.Decimal(15, 0)  // Gaji Pokok
+    tunjanganJabatan      Decimal  @default(0) @db.Decimal(15, 0)  // Tunjangan Jabatan
+    tunjanganPerumahan    Decimal  @default(0) @db.Decimal(15, 0)  // Tunjangan Perumahan
+    
+    // ========== POTONGAN BPJS (FIXED NOMINAL) ==========
+    potBpjsTkJht          Decimal  @default(0) @db.Decimal(15, 0)
+    potBpjsTkJn           Decimal  @default(0) @db.Decimal(15, 0)
+    potBpjsKesehatan      Decimal  @default(0) @db.Decimal(15, 0)
+    
+    // ========== STATUS KARYAWAN ==========
+    tanggalMulaiKerja     DateTime?
+    tanggalKeluar         DateTime?  // Tanggal resign/keluar
+    isActive              Boolean  @default(true)
+    
+    createdAt             DateTime @default(now())
+    updatedAt             DateTime @updatedAt
+    
+    // Relations
+    penggajian            PenggajianKaryawan[]
+    changeLogs            KaryawanChangeLog[]
+    
+    @@index([namaKaryawan])
+    @@index([divisiId])
+    @@index([jabatanId])
+    @@index([isActive])
+}
+
+// Log perubahan data karyawan
+model KaryawanChangeLog {
+    id                String   @id @default(cuid())
+    masterKaryawanId  String
+    fieldName         String   // Field yang berubah (divisiId, jabatanId, gajiPokok, etc)
+    oldValue          String?  // Nilai lama
+    newValue          String?  // Nilai baru
+    oldDisplayValue   String?  // Nilai tampilan lama (nama divisi/jabatan)
+    newDisplayValue   String?  // Nilai tampilan baru
+    changedBy         String   // Username yang mengubah
+    changedAt         DateTime @default(now())
+    
+    masterKaryawan    MasterKaryawan @relation(fields: [masterKaryawanId], references: [id], onDelete: Cascade)
+    
+    @@index([masterKaryawanId])
+    @@index([changedAt])
+}
+
+model PenggajianKaryawan {
+    id                    String   @id @default(cuid())
+    
+    // Reference to Master Karyawan (required)
+    masterKaryawanId      String
+    masterKaryawan        MasterKaryawan @relation(fields: [masterKaryawanId], references: [id], onDelete: Restrict)
+    
+    // Periode Gaji
+    periodeBulan          Int      // 1-12
+    periodeTahun          Int      // 2024, 2025, etc
+    
+    // ========== SNAPSHOT SALARY (dari master saat generate) ==========
+    gajiPokok             Decimal  @default(0) @db.Decimal(15, 0)
+    tunjanganJabatan      Decimal  @default(0) @db.Decimal(15, 0)
+    tunjanganPerumahan    Decimal  @default(0) @db.Decimal(15, 0)
+    tunjanganLainLain     Decimal  @default(0) @db.Decimal(15, 0)
+    
+    // ========== HARI KERJA (ATTENDANCE) ==========
+    hk                    Int      @default(0)  // HK (Hari Kerja)
+    hkDibayar             Int      @default(0)  // HK Dibayar
+    hkTidakDibayar        Int      @default(0)  // HK Tidak Dibayar
+    liburDibayar          Int      @default(0)  // Libur Dibayar
+    hariBelumMasuk        Int      @default(0)  // Hari Belum Masuk Kerja (untuk karyawan masuk pertengahan bulan)
+    tanggalKerja          Json?    // Detail attendance per tanggal { "1": "WK", "2": "Off", ... }
+    
+    // ========== OVERTIME ==========
+    overtime              Decimal  @default(0) @db.Decimal(15, 0)  // Overtime (rupiah)
+    lemburHari            Float    @default(0)  // Lembur (hari) - backward compatibility
+    totalMenit            Int      @default(0)  // Total menit lembur
+    totalMenitDibayar     Int      @default(0)  // Total menit dibayar (setelah multiplier)
+    lemburDetail          Json?    // Detail lembur per tanggal
+    
+    // ========== POTONGAN ==========
+    potKehadiran          Decimal  @default(0) @db.Decimal(15, 0)
+    potPinjaman           Decimal  @default(0) @db.Decimal(15, 0)
+    potLainLain           Decimal  @default(0) @db.Decimal(15, 0)
+    potBpjsTkJht          Decimal  @default(0) @db.Decimal(15, 0)
+    potBpjsTkJn           Decimal  @default(0) @db.Decimal(15, 0)
+    potBpjsKesehatan      Decimal  @default(0) @db.Decimal(15, 0)
+    potPph21              Decimal  @default(0) @db.Decimal(15, 0)
+    totalPotongan         Decimal  @default(0) @db.Decimal(15, 0)
+    
+    // ========== HASIL ==========
+    totalSebelumPotongan  Decimal  @default(0) @db.Decimal(15, 0)
+    upahDiterima          Decimal  @default(0) @db.Decimal(15, 0)
+    
+    // ========== ADDITIONAL ==========
+    thr                   Decimal  @default(0) @db.Decimal(15, 0)
+    sppd                  Decimal  @default(0) @db.Decimal(15, 0)
+    keteranganDetail      Json?    // { sppd?: string; tunjanganLainLain?: string }
+    
+    createdAt             DateTime @default(now())
+    updatedAt             DateTime @updatedAt
+    
+    @@index([periodeTahun, periodeBulan])
+    @@index([masterKaryawanId])
+}
+
+// Model Pembayaran PR - Record pembayaran untuk PR Pembelian Langsung
+model PembayaranPR {
+    id                    String           @id @default(cuid())
+    purchaseRequestId     String
+    
+    tanggalBayar          DateTime         @default(now())
+    jumlahBayar           Float
+    metodePembayaran      String?          // CASH, TRANSFER, GIRO, dll
+    nomorReferensi        String?          // Nomor bukti bayar
+    keterangan            String?
+    dibayarOleh           String           // Username yang mencatat pembayaran
+    
+    createdAt             DateTime         @default(now())
+    
+    purchaseRequest       PurchaseRequest  @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+    
+    @@index([purchaseRequestId])
+    @@index([tanggalBayar])
+}
+
+// Model Pembayaran PO - Record pembayaran untuk Purchase Order
+model PembayaranPO {
+    id                    String         @id @default(cuid())
+    purchaseOrderId       String
+    
+    tanggalBayar          DateTime       @default(now())
+    jumlahBayar           Float
+    metodePembayaran      String?        // CASH, TRANSFER, GIRO, dll
+    nomorReferensi        String?        // Nomor bukti bayar
+    keterangan            String?
+    dibayarOleh           String         // Username yang mencatat pembayaran
+    
+    createdAt             DateTime       @default(now())
+    
+    purchaseOrder         PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+    
+    @@index([purchaseOrderId])
+    @@index([tanggalBayar])
+}
+
+// ============================================
+// MODUL INVOICE PENGIRIMAN PRODUK
+// ============================================
+
+// Enum untuk status invoice
+enum StatusInvoice {
+    DRAFT           // Baru dibuat
+    ISSUED          // Sudah diterbitkan
+    PARTIAL_PAID    // Sebagian dibayar
+    PAID            // Lunas
+    CANCELLED       // Dibatalkan
+}
+
+// Model Invoice - Invoice untuk pengiriman produk ke buyer
+model Invoice {
+    id                    String         @id @default(cuid())
+    companyId             String
+    
+    // Informasi Invoice
+    nomorInvoice          String         @unique
+    tanggalInvoice        DateTime       @default(now())
+    tanggalJatuhTempo     DateTime?
+    
+    // Referensi Kontrak
+    contractId            String
+    buyerId               String
+    
+    // Nilai Dasar
+    totalBerat            Float          @default(0)  // Total berat netto (kg)
+    hargaPerKg            Float          @default(0)  // Harga per kg dari kontrak
+    subtotalBruto         Float          @default(0)  // totalBerat * hargaPerKg
+    
+    // Klaim Mutu (potongan berdasarkan mutu)
+    klaimMutuPersen       Float          @default(0)  // Persentase klaim mutu
+    klaimMutuNilai        Float          @default(0)  // Nilai klaim mutu (subtotalBruto * klaimMutuPersen / 100)
+    klaimMutuKeterangan   String?                     // Keterangan klaim mutu
+    
+    // Klaim Susut (potongan berdasarkan susut/shrinkage)
+    klaimSusutPersen      Float          @default(0)  // Persentase klaim susut
+    klaimSusutNilai       Float          @default(0)  // Nilai klaim susut (subtotalBruto * klaimSusutPersen / 100)
+    klaimSusutKeterangan  String?                     // Keterangan klaim susut
+    
+    // Total Potongan
+    totalPotongan         Float          @default(0)  // klaimMutuNilai + klaimSusutNilai
+    
+    // Nilai Setelah Potongan
+    subtotalNetto         Float          @default(0)  // subtotalBruto - totalPotongan
+    
+    // Pajak
+    ppnPersen             Float          @default(0)  // PPN (%) - dari status pajak buyer
+    ppnNilai              Float          @default(0)  // Nilai PPN
+    pphPersen             Float          @default(0)  // PPh (%) jika ada
+    pphNilai              Float          @default(0)  // Nilai PPh
+    
+    // Total Akhir
+    totalNilai            Float          @default(0)  // subtotalNetto + ppnNilai - pphNilai
+    
+    // Pembayaran
+    totalDibayar          Float          @default(0)
+    sisaPembayaran        Float          @default(0)  // totalNilai - totalDibayar
+    
+    // Catatan
+    catatan               String?
+    
+    // PPN Disclaimer (untuk ditampilkan di PDF)
+    showPpnDisclaimer     Boolean        @default(false)
+    
+    // Penandatangan Invoice
+    namaPenandatangan     String?        @default("TARA MIFTAHUR")
+    jabatanPenandatangan  String?        @default("Direktur")
+    
+    // Status
+    status                StatusInvoice  @default(DRAFT)
+    
+    // Operator
+    createdBy             String         // Username yang membuat
+    issuedBy              String?        // Username yang menerbitkan
+    tanggalIssued         DateTime?
+    
+    createdAt             DateTime       @default(now())
+    updatedAt             DateTime       @updatedAt
+    
+    // Relations
+    contract              Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+    buyer                 Buyer          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+    invoiceItems          InvoiceItem[]
+    pembayaranInvoice     PembayaranInvoice[]
+    
+    @@index([companyId])
+    @@index([nomorInvoice])
+    @@index([contractId])
+    @@index([buyerId])
+    @@index([tanggalInvoice])
+    @@index([status])
+}
+
+// Model InvoiceItem - Item detail dalam invoice (pengiriman yang di-invoice)
+model InvoiceItem {
+    id                    String             @id @default(cuid())
+    invoiceId             String
+    pengirimanProductId   String             @unique // One pengiriman can only be invoiced once
+    
+    // Data dari pengiriman
+    nomorPengiriman       String
+    tanggalPengiriman     DateTime
+    beratNetto            Float              // Berat netto dari pengiriman
+    
+    // Mutu
+    ffa                   Float?
+    air                   Float?
+    kotoran               Float?
+    
+    // Nilai
+    hargaSatuan           Float
+    subtotal              Float              // beratNetto * hargaSatuan
+    
+    // Klaim per item (opsional)
+    klaimMutuPersen       Float              @default(0)
+    klaimMutuNilai        Float              @default(0)
+    klaimSusutPersen      Float              @default(0)
+    klaimSusutNilai       Float              @default(0)
+    totalPotongan         Float              @default(0)
+    totalBersih           Float              @default(0)  // subtotal - totalPotongan
+    
+    keterangan            String?
+    
+    createdAt             DateTime           @default(now())
+    updatedAt             DateTime           @updatedAt
+    
+    invoice               Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+    pengirimanProduct     PengirimanProduct  @relation(fields: [pengirimanProductId], references: [id], onDelete: Cascade)
+    
+    @@index([invoiceId])
+    @@index([pengirimanProductId])
+}
+
+// Model Pembayaran Invoice - Record pembayaran dari buyer
+model PembayaranInvoice {
+    id                    String    @id @default(cuid())
+    invoiceId             String
+    
+    tanggalBayar          DateTime  @default(now())
+    jumlahBayar           Float
+    metodePembayaran      String?   // CASH, TRANSFER, GIRO, dll
+    nomorReferensi        String?   // Nomor bukti bayar
+    keterangan            String?
+    diterimaOleh          String    // Username yang mencatat pembayaran
+    
+    createdAt             DateTime  @default(now())
+    
+    invoice               Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+    
+    @@index([invoiceId])
+    @@index([tanggalBayar])
+}
+
+// ========== NOTIFICATION SYSTEM ==========
+
+// Enum untuk tipe notifikasi
+enum NotificationType {
+    PR_PENDING_APPROVAL   // PR menunggu approval
+    PR_APPROVED           // PR disetujui
+    PR_REJECTED           // PR ditolak
+    PO_PENDING_APPROVAL   // PO menunggu approval
+    PO_APPROVED           // PO disetujui
+    PO_ISSUED             // PO diterbitkan
+}
+
+// Model Notification - Notifikasi dalam aplikasi
+model Notification {
+    id            String           @id @default(cuid())
+    companyId     String
+    userId        String           // Target user yang menerima notifikasi
+    type          NotificationType
+    title         String           // Judul notifikasi
+    message       String           // Pesan notifikasi
+    referenceId   String?          // ID dari PR/PO terkait (nullable)
+    referenceUrl  String?          // URL untuk navigasi saat diklik
+    isRead        Boolean          @default(false)
+    createdAt     DateTime         @default(now())
+    
+    user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+    company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    
+    @@index([userId])
+    @@index([companyId])
+    @@index([isRead])
+    @@index([createdAt])
+}
+
+// Enum untuk status biaya
+enum StatusBiaya {
+    DRAFT       // Baru dibuat
+    ACTIVE      // Aktif/tercatat
+    PAID        // Sudah dibayar
+    CANCELLED   // Dibatalkan
+}
+
+// Model Biaya Pengeluaran - Pencatatan biaya operasional perusahaan
+model BiayaPengeluaran {
+    id              String         @id @default(cuid())
+    companyId       String
+    nomorBiaya      String         @unique  // Auto-generated: BP-YYYYMM-XXXX
+    tanggalBiaya    DateTime       @default(now())
+    kategoriBiaya   String
+    deskripsi       String         // Deskripsi biaya
+    jumlahBiaya     Float          // Jumlah nominal biaya
+    periodeBulan    Int?           // Optional: bulan periode (1-12)
+    periodeTahun    Int?           // Optional: tahun periode
+    keterangan      String?        // Keterangan tambahan
+    status          StatusBiaya    @default(ACTIVE)
+    dibuatOleh      String         // Username yang membuat
+    
+    pengajuanBiayaOperasionalId String? @unique
+    pengajuanBiayaOperasional   PengajuanBiayaOperasional? @relation(fields: [pengajuanBiayaOperasionalId], references: [id], onDelete: SetNull)
+
+    createdAt       DateTime       @default(now())
+    updatedAt       DateTime       @updatedAt
+    
+    company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    
+    @@index([companyId])
+    @@index([kategoriBiaya])
+    @@index([tanggalBiaya])
+    @@index([status])
+    @@index([periodeBulan, periodeTahun])
+}
+
+// Enum untuk status pengajuan biaya operasional
+enum StatusPengajuanBiaya {
+    DRAFT       // Draft, belum diajukan
+    PENDING     // Menunggu persetujuan (approval)
+    APPROVED    // Disetujui (otomatis masuk ke Biaya Pengeluaran)
+    REJECTED    // Ditolak
+    PAID        // Sudah dibayar di modul Keuangan
+    CANCELLED   // Dibatalkan
+}
+
+// Model Pengajuan Biaya Operasional (alur mirip PR dengan kategori biaya operasional)
+model PengajuanBiayaOperasional {
+    id                  String                          @id @default(cuid())
+    companyId           String
+    nomorPengajuan      String                          @unique // Format: BO-YYYYMM-XXXX
+    tanggalPengajuan    DateTime                        @default(now())
+    divisi              String                          // Divisi yang mengajukan
+    kategoriBiaya       String                          // Kategori biaya operasional (PLN, OPERASIONAL_KEUANGAN, dll)
+    keperluan           String                          // Uraian/keperluan pengajuan
+    totalBiaya          Float                           // Total estimasi biaya
+    requestedBy         String                          // Diajukan oleh (username/nama)
+    approvedBy          String?                         // Disetujui oleh (username/nama)
+    tanggalApproval     DateTime?                       // Tanggal persetujuan
+    alasanReject        String?                         // Alasan jika ditolak
+    catatan             String?                         // Catatan tambahan
+    status              StatusPengajuanBiaya            @default(DRAFT)
+    
+    createdAt           DateTime                        @default(now())
+    updatedAt           DateTime                        @updatedAt
+    
+    company             Company                         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    items               PengajuanBiayaOperasionalItem[]
+    biayaPengeluaran    BiayaPengeluaran?
+    
+    @@index([companyId])
+    @@index([tanggalPengajuan])
+    @@index([status])
+    @@index([kategoriBiaya])
+    @@index([divisi])
+}
+
+// Item rincian Pengajuan Biaya Operasional (mirip item PR)
+model PengajuanBiayaOperasionalItem {
+    id                  String                     @id @default(cuid())
+    pengajuanId         String
+    deskripsi           String                     // Nama item / uraian kebutuhan
+    jumlah              Float                      // Kuantitas / Qty
+    satuan              String                     // Satuan (unit, bulan, paket, pcs, dll)
+    estimasiHarga       Float                      // Estimasi harga satuan
+    subtotal            Float                      // jumlah * estimasiHarga
+    keterangan          String?                    // Keterangan per item
+    
+    createdAt           DateTime                   @default(now())
+    updatedAt           DateTime                   @updatedAt
+    
+    pengajuan           PengajuanBiayaOperasional  @relation(fields: [pengajuanId], references: [id], onDelete: Cascade)
+    
+    @@index([pengajuanId])
+}

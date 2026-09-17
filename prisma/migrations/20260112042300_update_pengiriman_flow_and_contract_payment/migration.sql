@@ -1,0 +1,25 @@
+-- CreateEnum
+CREATE TYPE "PaymentMethod" AS ENUM ('LUNAS_AWAL', 'SEBAGIAN', 'SETELAH_PENGIRIMAN');
+
+-- CreateEnum
+CREATE TYPE "PaymentStatus" AS ENUM ('UNPAID', 'PARTIAL', 'PAID');
+
+-- AlterEnum
+ALTER TYPE "StatusPengiriman" ADD VALUE 'TIMBANG_GROSS';
+
+-- AlterTable
+ALTER TABLE "Contract" ADD COLUMN     "paidAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "paymentDate" TIMESTAMP(3),
+ADD COLUMN     "paymentMethod" "PaymentMethod" NOT NULL DEFAULT 'SETELAH_PENGIRIMAN',
+ADD COLUMN     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'UNPAID';
+
+-- AlterTable
+ALTER TABLE "PengirimanProduct" ALTER COLUMN "buyerId" DROP NOT NULL,
+ALTER COLUMN "contractId" DROP NOT NULL,
+ALTER COLUMN "contractItemId" DROP NOT NULL,
+ALTER COLUMN "beratGross" DROP NOT NULL,
+ALTER COLUMN "waktuTimbangGross" DROP NOT NULL,
+ALTER COLUMN "beratNetto" DROP NOT NULL,
+ALTER COLUMN "ffa" DROP NOT NULL,
+ALTER COLUMN "air" DROP NOT NULL,
+ALTER COLUMN "kotoran" DROP NOT NULL;
